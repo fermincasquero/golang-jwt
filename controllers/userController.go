@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/fredele20/golang-jwt-project/database"
@@ -21,7 +22,13 @@ import (
 var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
 var validate = validator.New()
 
-func HashPassword() {}
+func HashPassword(password string) string {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	if err != nil {
+		log.Panic(err)
+	}
+	return string(bytes)
+}
 
 func VerifyPassword(userPassword, providedPassword string) (bool, string) {
 	err := bcrypt.CompareHashAndPassword([]byte(providedPassword), []byte(userPassword))
@@ -57,6 +64,9 @@ func Signup() gin.HandlerFunc {
 			log.Panic(err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while checking for the email"})
 		}
+
+		password := HashPassword(*user.Password)
+		user.Password = &password
 
 		count, err = userCollection.CountDocuments(userCtx, bson.M{"phone": user.Phone})
 		defer cancel()
@@ -134,7 +144,57 @@ func Login() gin.HandlerFunc {
 	}
 }
 
-func GetUsers() {}
+func GetUsers() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		if err := helpers.CheckUserType(ctx, "ADMIN"); err != nil {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		var userCtx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+
+		recordPerPage, err := strconv.Atoi(ctx.Query("recordPerPage"))
+		if err != nil || recordPerPage < 1 {
+			recordPerPage = 10
+		}
+		page, err1 := strconv.Atoi(ctx.Query("page"))
+		if err1 != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page -1) * recordPerPage
+		startIndex, err = strconv.Atoi(ctx.Query("startIndex"))
+
+		matchStage := bson.D{{"$match", bson.D{{}}}}
+		groupStage := bson.D{{"$group", bson.D{
+			{"_id", bson.D{{"_id", "null"}}}, 
+			{"total_count", bson.D{{"$sum", 1}}}, 
+			{"data", bson.D{{"$push", "$$ROOT"}}},
+		}}}
+		projectStage := bson.D{
+			{"$project", bson.D{
+				{"_id", 0},
+				{"total_count", 1},
+				{"user_items", bson.D{{"$slice", []interface{}{"$data", startIndex, recordPerPage}}}},
+			}},
+		}
+
+		result, err := userCollection.Aggregate(userCtx, mongo.Pipeline{
+			matchStage, groupStage, projectStage,
+		})
+
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while listing users"})
+		}
+
+		var allUsers []bson.M
+		if err = result.All(userCtx, &allUsers); err != nil {
+			log.Fatal(err)
+		}
+		ctx.JSON(http.StatusOK, allUsers[0])
+		
+	}
+}
 
 // only the admin has the acces to this request
 func GetUser() gin.HandlerFunc {

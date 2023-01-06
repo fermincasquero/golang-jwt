@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -29,11 +30,11 @@ var SECRET_KEY string = os.Getenv("SECRET_KEY")
 
 func GenerateAuthToken(email, firstname, lastname, userType, uid string) (signedToken, signedRefreshToken string, err error) {
 	claims := &SignedDetails{
-		Email: email,
+		Email:      email,
 		First_name: firstname,
-		Last_name: lastname,
-		Uid: uid,
-		User_type: userType,
+		Last_name:  lastname,
+		Uid:        uid,
+		User_type:  userType,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24)).Unix(),
 		},
@@ -50,7 +51,7 @@ func GenerateAuthToken(email, firstname, lastname, userType, uid string) (signed
 		log.Panic(err)
 		return
 	}
-	
+
 	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodES256, refreshClaims).SignedString([]byte(SECRET_KEY))
 	if err != nil {
 		log.Panic(err)
@@ -60,9 +61,38 @@ func GenerateAuthToken(email, firstname, lastname, userType, uid string) (signed
 	return token, refreshToken, err
 }
 
+func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
+	token, err := jwt.ParseWithClaims(
+		signedToken,
+		&SignedDetails{},
+		func(t *jwt.Token) (interface{}, error) {
+			return []byte(SECRET_KEY), nil
+		},
+	)
+
+	if err != nil {
+		msg = err.Error()
+		return
+	}
+
+	claims, ok := token.Claims.(*SignedDetails)
+	if !ok {
+		msg = fmt.Sprintf("the token is invalid")
+		msg = err.Error()
+		return
+	}
+
+	if claims.ExpiresAt < time.Now().Local().Unix() {
+		msg = fmt.Sprintf("token is expired")
+		msg = err.Error()
+		return
+	}
+	return claims, msg
+}
+
 func UpdateAllToken(signedToken, signedRefreshToken, userId string) {
-	var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
-	
+	var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+
 	var updateObj primitive.D
 
 	updateObj = append(updateObj, bson.E{"token", signedToken})
