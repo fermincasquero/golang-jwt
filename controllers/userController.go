@@ -113,6 +113,24 @@ func Login() gin.HandlerFunc {
 
 		validPassword, msg := VerifyPassword(*user.Password, *foundUser.Password)
 		defer cancel()
+		if !validPassword {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
+
+		if foundUser.Email == nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+		}
+
+		token, refreshToken, _ := helpers.GenerateAuthToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, foundUser.User_id)
+		helpers.UpdateAllToken(token, refreshToken, foundUser.User_id)
+		err = userCollection.FindOne(ctx, bson.M{"user_id": foundUser.User_id}).Decode(&foundUser)
+
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, foundUser)
 	}
 }
 
