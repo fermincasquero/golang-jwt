@@ -84,7 +84,9 @@ func Signup() gin.HandlerFunc {
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
 
-		token, refereshToken, err := helpers.GenerateAuthToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, *&user.User_id)
+		fmt.Println("got here?")
+
+		token, refereshToken, _ := helpers.GenerateAuthToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, *&user.User_id)
 		if err != nil {
 			log.Panic(err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while generating token"})
