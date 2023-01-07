@@ -63,45 +63,47 @@ func Signup() gin.HandlerFunc {
 		if err != nil {
 			log.Panic(err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while checking for the email"})
+			return
 		}
-
-		password := HashPassword(*user.Password)
-		user.Password = &password
 
 		count, err = userCollection.CountDocuments(userCtx, bson.M{"phone": user.Phone})
 		defer cancel()
 		if err != nil {
 			log.Panic(err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"erro": "error occured while checking for the phone number"})
+			return
 		}
 
 		if count > 0 {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "user with this phone number or email already exists"})
+			return
 		}
+
+		password := HashPassword(*user.Password)
+		user.Password = &password
 
 		user.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
 
-		fmt.Println("got here?")
-
 		token, refereshToken, _ := helpers.GenerateAuthToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, *&user.User_id)
 		if err != nil {
 			log.Panic(err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while generating token"})
+			return
 		}
 		user.Token = &token
 		user.Refresh_token = &refereshToken
 
-		resultInsertionNumber, insertError := userCollection.InsertOne(userCtx, user)
+		_, insertError := userCollection.InsertOne(userCtx, user)
 		if insertError != nil {
 			msg := fmt.Sprintf("User item was not created")
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
 		defer cancel()
-		ctx.JSON(http.StatusOK, resultInsertionNumber)
+		ctx.JSON(http.StatusOK, user)
 	}
 }
 

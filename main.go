@@ -30,7 +30,7 @@ func main() {
 		ctx.JSON(200, gin.H{"success": "Access granted for api-1"})
 	})
 	router.GET("/api-2", func(ctx *gin.Context) {
-		ctx.JSON(200, gin.H{"suscess": "Access granted for api-2"})
+		ctx.JSON(200, gin.H{"success": "Access granted for api-2"})
 	})
 
 	router.Run(":" + port)
