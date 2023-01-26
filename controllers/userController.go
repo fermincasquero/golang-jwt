@@ -42,6 +42,17 @@ func VerifyPassword(userPassword, providedPassword string) (bool, string) {
 	return check, msg
 }
 
+func checkExistingUser(ctx context.Context, field, value string) (int64, error) {
+	count, err := userCollection.CountDocuments(ctx, bson.M{field: value})
+	if err != nil {
+		log.Panic(err)
+		fmt.Printf("Error checking for %v", field)
+		return count, err
+	}
+
+	return count, nil
+}
+
 func Signup() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var userCtx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
@@ -58,24 +69,11 @@ func Signup() gin.HandlerFunc {
 			return
 		}
 
-		count, err := userCollection.CountDocuments(userCtx, bson.M{"email": user.Email})
-		defer cancel()
-		if err != nil {
-			log.Panic(err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while checking for the email"})
-			return
-		}
+		countEmail, _ := checkExistingUser(userCtx, "email", *user.Email)
+		countPhone, _ := checkExistingUser(userCtx, "phone", *user.Phone)
 
-		count, err = userCollection.CountDocuments(userCtx, bson.M{"phone": user.Phone})
-		defer cancel()
-		if err != nil {
-			log.Panic(err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{"erro": "error occured while checking for the phone number"})
-			return
-		}
-
-		if count > 0 {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "user with this phone number or email already exists"})
+		if countEmail > 0 || countPhone > 0 {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "user with this phone number or email already exists"})
 			return
 		}
 
@@ -87,7 +85,7 @@ func Signup() gin.HandlerFunc {
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
 
-		token, refereshToken, _ := helpers.GenerateAuthToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, *&user.User_id)
+		token, refereshToken, err := helpers.GenerateAuthToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, *&user.User_id)
 		if err != nil {
 			log.Panic(err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while generating token"})
@@ -201,6 +199,8 @@ func GetUsers() gin.HandlerFunc {
 }
 
 // only the admin has the acces to this request
+// TODO: coming back here to implement this function better
+// to allow users to get their informations but allows admin only to access other users info.
 func GetUser() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		userId := ctx.Param("user_id")

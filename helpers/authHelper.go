@@ -22,7 +22,7 @@ func MatchUserTypeToUid(ctx *gin.Context, userId string) (err error) {
 	err = nil
 
 	if userType == "USER" && uid != userId {
-		err = errors.New("unauthorized to access this resource")
+		err = errors.New("Invalid user id")
 		return err
 	}
 

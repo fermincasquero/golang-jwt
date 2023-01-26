@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -31,5 +32,17 @@ func Authenticate() gin.HandlerFunc {
 		ctx.Set("user_type", claims.User_type)
 		ctx.Next()
 
+	}
+}
+
+func GetCurrentUser(id string) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		userId := ctx.GetString("user_id")
+		if userId != id {
+			err := errors.New("user can not perform this operation")
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": err})
+			return
+		}
+		ctx.Next()
 	}
 }
