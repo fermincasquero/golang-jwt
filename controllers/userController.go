@@ -56,6 +56,7 @@ func checkExistingUser(ctx context.Context, field, value string) (int64, error) 
 func Signup() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var userCtx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 		var user models.User
 
 		if err := ctx.BindJSON(&user); err != nil {
@@ -108,6 +109,8 @@ func Signup() gin.HandlerFunc {
 func Login() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var userCtx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
 		var user models.User
 		var foundUser models.User
 
@@ -204,11 +207,23 @@ func GetUsers() gin.HandlerFunc {
 func GetUser() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		userId := ctx.Param("user_id")
+		userEmail := ctx.GetString("email")
+		userType := ctx.GetString("user_type")
+		fmt.Println(userEmail)
+		fmt.Println(userId)
 
-		if err := helpers.MatchUserTypeToUid(ctx, userId); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if userType != "ADMIN" {
+			ctx.JSON(http.StatusBadGateway, gin.H{"error": "you can not do this"})
 			return
 		}
+
+		if err := helpers.MatchUserTypeToUid(ctx, userId); err != nil {
+			fmt.Println(userId)
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			fmt.Println(err.Error())
+			return
+		}
+		fmt.Println(userId)
 		var userCtx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 
 		var user models.User

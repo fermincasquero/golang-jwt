@@ -21,7 +21,7 @@ func MatchUserTypeToUid(ctx *gin.Context, userId string) (err error) {
 	uid := ctx.GetString("uid")
 	err = nil
 
-	if userType == "USER" && uid != userId {
+	if userType != "ADMIN" && uid != userId {
 		err = errors.New("Invalid user id")
 		return err
 	}
