@@ -9,6 +9,7 @@ import (
 	"github.com/fredele20/golang-jwt-project/database"
 	"github.com/fredele20/golang-jwt-project/models"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -35,9 +36,6 @@ func AddProduct() gin.HandlerFunc {
 			return
 		}
 
-		// userId := ctx.GetString("uid")
-		// userName := ctx.GetString("first_name")
-
 		product.OwnerID = ctx.GetString("uid")
 		product.OwnerName = ctx.GetString("first_name")
 		product.ID = primitive.NewObjectID()
@@ -51,5 +49,52 @@ func AddProduct() gin.HandlerFunc {
 
 		defer cancel()
 		ctx.JSON(http.StatusCreated, product)
+	}
+}
+
+func GetProductById() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var productCtx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+		defer cancel()
+		productId := ctx.Param("product_id")
+
+		var product models.Product
+
+		err := productCollection.FindOne(productCtx, bson.M{"product_id": productId}).Decode(&product)
+		if err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "product with the given ID is not found"})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, product)
+	}
+}
+
+
+func GetProductsByOwnerId() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var productCtx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+		defer cancel()
+		ownerId := ctx.Param("ownerid")
+
+		var products []models.Product
+
+		results, err := productCollection.Find(productCtx, bson.M{"ownerid": ownerId})
+		if err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "product with the owner id is not found"})
+			return
+		}
+
+		defer results.Close(productCtx)
+		for results.Next(productCtx) {
+			var singleProduct models.Product
+			if err = results.Decode(&singleProduct); err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
+
+			products = append(products, singleProduct)
+		}
+
+		ctx.JSON(http.StatusOK, &products)
 	}
 }

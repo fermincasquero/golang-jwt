@@ -7,6 +7,11 @@ import (
 )
 
 func ProductRoutes(incomingRoutes *gin.Engine) {
+	incomingRoutes.GET("/product/:product_id", controllers.GetProductById())
+	incomingRoutes.GET("/product/owner/:ownerid", controllers.GetProductsByOwnerId())
+}
+
+func ProductProtectedRoutes(incomingRoutes *gin.Engine) {
 	incomingRoutes.Use(middleware.Authenticate())
 	incomingRoutes.POST("/product/add", controllers.AddProduct())
 }
