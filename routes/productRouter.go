@@ -14,4 +14,5 @@ func ProductRoutes(incomingRoutes *gin.Engine) {
 func ProductProtectedRoutes(incomingRoutes *gin.Engine) {
 	incomingRoutes.Use(middleware.Authenticate())
 	incomingRoutes.POST("/product/add", controllers.AddProduct())
+	incomingRoutes.POST("/product/purchase", controllers.PurchaseProduct())
 }
