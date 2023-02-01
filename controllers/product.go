@@ -137,6 +137,13 @@ func PurchaseProduct() gin.HandlerFunc {
 			return
 		}
 
+		updateProductQty := bson.M{"quantity": product.Quantity - purchaseProduct.Quantity}
+		_, err = productCollection.UpdateOne(productCtx, bson.M{"product_id": product.Product_ID}, bson.M{"$set": updateProductQty})
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		ctx.JSON(http.StatusOK, purchaseProduct)
 	}
 }
