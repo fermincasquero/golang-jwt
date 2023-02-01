@@ -20,6 +20,12 @@ type Product struct {
 }
 
 type PurchaseProduct struct {
-	ProductId string `json:"product_id" validate:"required"`
-	Quantity  int    `json:"qty" validate:"required"`
+	ProductId       string    `json:"product_id" validate:"required"`
+	ProductName     string    `json:"product_name"`
+	Quantity        int       `json:"qty" validate:"required"`
+	SellerId        string    `json:"seller_id"`
+	SellerName      string    `json:"seller_name"`
+	BuyerId         string    `json:"buyer_id"`
+	BuyerName       string    `json:"buyer_name"`
+	TransactionDate time.Time `json:"transaction_date"`
 }

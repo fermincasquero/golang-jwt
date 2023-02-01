@@ -119,6 +119,18 @@ func PurchaseProduct() gin.HandlerFunc {
 			return
 		}
 
+		if product.Quantity < purchaseProduct.Quantity {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not enough item available, go for a lesser one."})
+			return
+		}
+
+		purchaseProduct.SellerId = product.OwnerID
+		purchaseProduct.ProductName = *product.Name
+		purchaseProduct.SellerName = product.OwnerName
+		purchaseProduct.BuyerId = ctx.GetString("uid")
+		purchaseProduct.BuyerName = ctx.GetString("first_name") + " " + ctx.GetString("last_name")
+		purchaseProduct.TransactionDate, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+
 		_, insertErr := purchasedProduct.InsertOne(productCtx, purchaseProduct)
 		if insertErr != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
