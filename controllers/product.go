@@ -100,6 +100,9 @@ func GetProductsByOwnerId() gin.HandlerFunc {
 	}
 }
 
+
+// TODO: Going to call PDF generation functionality to this
+// and also sending of emails upon every successful transaction
 func PurchaseProduct() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var productCtx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
