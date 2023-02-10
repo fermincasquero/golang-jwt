@@ -20,83 +20,83 @@ var purchasedProduct *mongo.Collection = database.OpenCollection(database.Client
 
 
 func AddProduct() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		var productCtx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
 		defer cancel()
 
 		var product models.Product
 
-		if err := ctx.BindJSON(&product); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if err := c.BindJSON(&product); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		validationErr := validate.Struct(product)
 		if validationErr != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 			return
 		}
 
-		product.OwnerID = ctx.GetString("uid")
-		product.OwnerName = ctx.GetString("first_name") + " " + ctx.GetString("last_name")
+		product.OwnerID = c.GetString("uid")
+		product.OwnerName = c.GetString("first_name") + " " + c.GetString("last_name")
 		product.ID = primitive.NewObjectID()
 		product.Product_ID = product.ID.Hex()
-		_, insertErr := productCollection.InsertOne(productCtx, product)
+		_, insertErr := productCollection.InsertOne(ctx, product)
 		if insertErr != nil {
 			msg := fmt.Sprintf("Product item was not created")
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
 
 		defer cancel()
-		ctx.JSON(http.StatusCreated, product)
+		c.JSON(http.StatusCreated, product)
 	}
 }
 
 func GetProductById() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		var productCtx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
 		defer cancel()
-		productId := ctx.Param("product_id")
+		productId := c.Param("product_id")
 
 		var product models.Product
 
-		err := productCollection.FindOne(productCtx, bson.M{"product_id": productId}).Decode(&product)
+		err := productCollection.FindOne(ctx, bson.M{"product_id": productId}).Decode(&product)
 		if err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "product with the given ID is not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "product with the given ID is not found"})
 			return
 		}
 
-		ctx.JSON(http.StatusOK, product)
+		c.JSON(http.StatusOK, product)
 	}
 }
 
 
 func GetProductsByOwnerId() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		var productCtx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
 		defer cancel()
-		ownerId := ctx.Param("ownerid")
+		ownerId := c.Param("ownerid")
 
 		var products []models.Product
 
-		results, err := productCollection.Find(productCtx, bson.M{"ownerid": ownerId})
+		results, err := productCollection.Find(ctx, bson.M{"ownerid": ownerId})
 		if err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "product with the owner id is not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "product with the owner id is not found"})
 			return
 		}
 
-		defer results.Close(productCtx)
-		for results.Next(productCtx) {
+		defer results.Close(ctx)
+		for results.Next(ctx) {
 			var singleProduct models.Product
 			if err = results.Decode(&singleProduct); err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			}
 
 			products = append(products, singleProduct)
 		}
 
-		ctx.JSON(http.StatusOK, &products)
+		c.JSON(http.StatusOK, &products)
 	}
 }
 
@@ -104,49 +104,49 @@ func GetProductsByOwnerId() gin.HandlerFunc {
 // TODO: Going to call PDF generation functionality to this
 // and also sending of emails upon every successful transaction
 func PurchaseProduct() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		var productCtx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
 		defer cancel()
 
 		var product models.Product
 		var purchaseProduct models.PurchaseProduct
-		if err := ctx.BindJSON(&purchaseProduct); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if err := c.BindJSON(&purchaseProduct); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		err := productCollection.FindOne(productCtx, bson.M{"product_id": purchaseProduct.ProductId}).Decode(&product)
+		err := productCollection.FindOne(ctx, bson.M{"product_id": purchaseProduct.ProductId}).Decode(&product)
 		fmt.Println(purchaseProduct.ProductId)
 		if err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
 
 		if product.Quantity < purchaseProduct.Quantity {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not enough item available, go for a lesser one."})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Not enough item available, go for a lesser one."})
 			return
 		}
 
 		purchaseProduct.SellerId = product.OwnerID
 		purchaseProduct.ProductName = *product.Name
 		purchaseProduct.SellerName = product.OwnerName
-		purchaseProduct.BuyerId = ctx.GetString("uid")
-		purchaseProduct.BuyerName = ctx.GetString("first_name") + " " + ctx.GetString("last_name")
+		purchaseProduct.BuyerId = c.GetString("uid")
+		purchaseProduct.BuyerName = c.GetString("first_name") + " " + c.GetString("last_name")
 		purchaseProduct.TransactionDate, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
-		_, insertErr := purchasedProduct.InsertOne(productCtx, purchaseProduct)
+		_, insertErr := purchasedProduct.InsertOne(ctx, purchaseProduct)
 		if insertErr != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
 		updateProductQty := bson.M{"quantity": product.Quantity - purchaseProduct.Quantity}
-		_, err = productCollection.UpdateOne(productCtx, bson.M{"product_id": product.Product_ID}, bson.M{"$set": updateProductQty})
+		_, err = productCollection.UpdateOne(ctx, bson.M{"product_id": product.Product_ID}, bson.M{"$set": updateProductQty})
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		ctx.JSON(http.StatusOK, purchaseProduct)
+		c.JSON(http.StatusOK, purchaseProduct)
 	}
 }
