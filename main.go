@@ -1,29 +1,21 @@
 package main
 
 import (
-	"log"
-	"os"
+	"fmt"
 
+	"github.com/fredele20/golang-jwt-project/config"
 	"github.com/fredele20/golang-jwt-project/routes"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	secrets := config.GetSecrets()
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8000"
-	}
+	address := fmt.Sprintf("127.0.0.1:%s", secrets.Port)
 
 	router := gin.New()
 	router.Use(gin.Logger())
 
-	
 	routes.ProductRoutes(router)
 	routes.AuthRoutes(router)
 	routes.UserRoutes(router)
@@ -36,6 +28,6 @@ func main() {
 		ctx.JSON(200, gin.H{"success": "Access granted for api-2"})
 	})
 
-	router.Run(":" + port)
+	router.Run(address)
 
 }

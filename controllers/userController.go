@@ -64,6 +64,10 @@ func Signup() gin.HandlerFunc {
 			return
 		}
 
+		if user.User_type == "" {
+			user.User_type = "USER"
+		}
+
 		validationErr := validate.Struct(user)
 		if validationErr != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
@@ -86,7 +90,7 @@ func Signup() gin.HandlerFunc {
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
 
-		token, refereshToken, err := helpers.GenerateAuthToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, *&user.User_id)
+		token, refereshToken, err := helpers.GenerateAuthToken(*user.Email, *user.First_name, *user.Last_name, user.User_type, *&user.User_id)
 		if err != nil {
 			log.Panic(err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while generating token"})
@@ -137,7 +141,7 @@ func Login() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
 		}
 
-		token, refreshToken, _ := helpers.GenerateAuthToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, foundUser.User_id)
+		token, refreshToken, _ := helpers.GenerateAuthToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, foundUser.User_type, foundUser.User_id)
 		helpers.UpdateAllToken(token, refreshToken, foundUser.User_id)
 		err = userCollection.FindOne(c, bson.M{"user_id": foundUser.User_id}).Decode(&foundUser)
 
