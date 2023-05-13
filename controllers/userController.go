@@ -2,24 +2,26 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/fredele20/golang-jwt-project/database"
+	"github.com/fredele20/golang-jwt-project/core"
+	"github.com/fredele20/golang-jwt-project/database/mongod"
 	"github.com/fredele20/golang-jwt-project/helpers"
 	"github.com/fredele20/golang-jwt-project/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/nyaruka/phonenumbers"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+var userCollection *mongo.Collection = mongod.UserCollection()
 var validate = validator.New()
 
 func HashPassword(password string) string {
@@ -53,6 +55,22 @@ func checkExistingUser(ctx context.Context, field, value string) (int64, error) 
 	return count, nil
 }
 
+func parsePhone(phone, iso2 string) (string, error) {
+	num, err := phonenumbers.Parse(phone, iso2)
+	if err != nil {
+		return "", err
+	}
+
+	switch phonenumbers.GetNumberType(num) {
+	case phonenumbers.VOIP, phonenumbers.VOICEMAIL:
+		return "", errors.New("Sorry, this number can not be used")
+	}
+
+	return phonenumbers.Format(num, phonenumbers.E164), nil
+}
+
+// var con database.Store
+
 func Signup() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
@@ -64,47 +82,61 @@ func Signup() gin.HandlerFunc {
 			return
 		}
 
-		if user.User_type == "" {
-			user.User_type = "USER"
-		}
+		// if user.User_type == "" {
+		// 	user.User_type = "USER"
+		// }
 
-		validationErr := validate.Struct(user)
-		if validationErr != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
-			return
-		}
+		// validationErr := validate.Struct(user)
+		// if validationErr != nil {
+		// 	fmt.Println(user)
+		// 	c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+		// 	return
+		// }
 
-		countEmail, _ := checkExistingUser(ctx, "email", *user.Email)
-		countPhone, _ := checkExistingUser(ctx, "phone", *user.Phone)
+		// phone, err := parsePhone(user.Phone, user.Iso2)
+		// if err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{"error": "failed to validate phone"})
+		// 	return
+		// }
 
-		if countEmail > 0 || countPhone > 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "user with this phone number or email already exists"})
-			return
-		}
+		// user.Phone = phone
 
-		password := HashPassword(*user.Password)
-		user.Password = &password
+		// countEmail, _ := checkExistingUser(ctx, "email", user.Email)
+		// countPhone, _ := checkExistingUser(ctx, "phone", user.Phone)
+		
+		// if countEmail > 0 ||countPhone > 0 {
+		// 	c.JSON(http.StatusBadRequest, gin.H{"error": "user with this email or phone number already exists"})
+		// 	return
+		// }
 
-		user.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		user.ID = primitive.NewObjectID()
-		user.User_id = user.ID.Hex()
+		// password := HashPassword(user.Password)
+		// user.Password = password
 
-		token, refereshToken, err := helpers.GenerateAuthToken(*user.Email, *user.First_name, *user.Last_name, user.User_type, *&user.User_id)
-		if err != nil {
-			log.Panic(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while generating token"})
-			return
-		}
-		user.Token = &token
-		user.Refresh_token = &refereshToken
+		// user.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		// user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		// user.ID = primitive.NewObjectID()
+		// user.User_id = user.ID.Hex()
 
-		_, insertError := userCollection.InsertOne(ctx, user)
-		if insertError != nil {
-			msg := fmt.Sprintf("User item was not created")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-			return
-		}
+		// token, refereshToken, err := helpers.GenerateAuthToken(user.Email, user.FirstName, user.LastName, user.User_type, *&user.User_id)
+		// if err != nil {
+		// 	log.Panic(err)
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while generating token"})
+		// 	return
+		// }
+		// user.Token = &token
+		// user.Refresh_token = &refereshToken
+
+		// _, insertError := userCollection.InsertOne(ctx, user)
+		// if insertError != nil {
+		// 	msg := fmt.Sprintf("User item was not created")
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+		// 	return
+		// }
+		
+		_, _ = core.CreateUser(ctx, user)
+		// if err != nil {
+		// 	return nil, err
+		// }
 		defer cancel()
 		c.JSON(http.StatusOK, user)
 	}
@@ -130,18 +162,18 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
-		validPassword, msg := VerifyPassword(*user.Password, *foundUser.Password)
+		validPassword, msg := VerifyPassword(user.Password, foundUser.Password)
 		defer cancel()
 		if !validPassword {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
 
-		if foundUser.Email == nil {
+		if foundUser.Email == "" {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
 		}
 
-		token, refreshToken, _ := helpers.GenerateAuthToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, foundUser.User_type, foundUser.User_id)
+		token, refreshToken, _ := helpers.GenerateAuthToken(foundUser.Email, foundUser.FirstName, foundUser.LastName, foundUser.User_type, foundUser.User_id)
 		helpers.UpdateAllToken(token, refreshToken, foundUser.User_id)
 		err = userCollection.FindOne(c, bson.M{"user_id": foundUser.User_id}).Decode(&foundUser)
 
@@ -159,7 +191,7 @@ func GetUsers() gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}
-		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 
 		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
 		if err != nil || recordPerPage < 1 {
@@ -170,13 +202,13 @@ func GetUsers() gin.HandlerFunc {
 			page = 1
 		}
 
-		startIndex := (page -1) * recordPerPage
+		startIndex := (page - 1) * recordPerPage
 		startIndex, err = strconv.Atoi(c.Query("startIndex"))
 
 		matchStage := bson.D{{"$match", bson.D{{}}}}
 		groupStage := bson.D{{"$group", bson.D{
-			{"_id", bson.D{{"_id", "null"}}}, 
-			{"total_count", bson.D{{"$sum", 1}}}, 
+			{"_id", bson.D{{"_id", "null"}}},
+			{"total_count", bson.D{{"$sum", 1}}},
 			{"data", bson.D{{"$push", "$$ROOT"}}},
 		}}}
 		projectStage := bson.D{
@@ -201,7 +233,7 @@ func GetUsers() gin.HandlerFunc {
 			log.Fatal(err)
 		}
 		c.JSON(http.StatusOK, allUsers[0])
-		
+
 	}
 }
 

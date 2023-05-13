@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fredele20/golang-jwt-project/database"
+	"github.com/fredele20/golang-jwt-project/database/mongod"
 	"github.com/fredele20/golang-jwt-project/models"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,14 +14,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-
-var productCollection *mongo.Collection = database.OpenCollection(database.Client, "product")
-var purchasedProduct *mongo.Collection = database.OpenCollection(database.Client, "purchasedProduct")
-
+var productCollection *mongo.Collection = mongod.ProdCollection()
+var purchasedProduct *mongo.Collection = mongod.PurchasedCollection()
 
 func AddProduct() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
 		var product models.Product
@@ -55,7 +53,7 @@ func AddProduct() gin.HandlerFunc {
 
 func GetProductById() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 		productId := c.Param("product_id")
 
@@ -71,10 +69,9 @@ func GetProductById() gin.HandlerFunc {
 	}
 }
 
-
 func GetProductsByOwnerId() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 		ownerId := c.Param("ownerid")
 
@@ -100,12 +97,11 @@ func GetProductsByOwnerId() gin.HandlerFunc {
 	}
 }
 
-
 // TODO: Going to call PDF generation functionality to this
 // and also sending of emails upon every successful transaction
 func PurchaseProduct() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
 		var product models.Product
