@@ -13,36 +13,16 @@ import (
 	"github.com/fredele20/golang-jwt-project/database/mongod"
 	"github.com/fredele20/golang-jwt-project/helpers"
 	"github.com/fredele20/golang-jwt-project/models"
+	"github.com/fredele20/golang-jwt-project/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/nyaruka/phonenumbers"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var userCollection *mongo.Collection = mongod.UserCollection()
 var validate = validator.New()
-
-func HashPassword(password string) string {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	if err != nil {
-		log.Panic(err)
-	}
-	return string(bytes)
-}
-
-func VerifyPassword(userPassword, providedPassword string) (bool, string) {
-	err := bcrypt.CompareHashAndPassword([]byte(providedPassword), []byte(userPassword))
-	check := true
-	msg := ""
-	if err != nil {
-		msg = fmt.Sprintf("email or password is incorrect")
-		check = false
-	}
-
-	return check, msg
-}
 
 func checkExistingUser(ctx context.Context, field, value string) (int64, error) {
 	count, err := userCollection.CountDocuments(ctx, bson.M{field: value})
@@ -103,7 +83,7 @@ func Signup() gin.HandlerFunc {
 
 		// countEmail, _ := checkExistingUser(ctx, "email", user.Email)
 		// countPhone, _ := checkExistingUser(ctx, "phone", user.Phone)
-		
+
 		// if countEmail > 0 ||countPhone > 0 {
 		// 	c.JSON(http.StatusBadRequest, gin.H{"error": "user with this email or phone number already exists"})
 		// 	return
@@ -132,13 +112,24 @@ func Signup() gin.HandlerFunc {
 		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 		// 	return
 		// }
-		
-		_, _ = core.CreateUser(ctx, user)
+
+		// token, refereshToken, err := helpers.GenerateAuthToken(user.Email, user.FirstName, user.LastName, user.User_type, *&user.User_id)
 		// if err != nil {
-		// 	return nil, err
+		// 	log.Panic(err)
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while generating token"})
+		// 	return
 		// }
+		// user.Token = &token
+		// user.Refresh_token = &refereshToken
+
+		newUser, err := core.CreateUser(ctx, user)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		defer cancel()
-		c.JSON(http.StatusOK, user)
+		c.JSON(http.StatusOK, newUser)
 	}
 }
 
@@ -162,7 +153,7 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
-		validPassword, msg := VerifyPassword(user.Password, foundUser.Password)
+		validPassword, msg := utils.VerifyPassword(user.Password, foundUser.Password)
 		defer cancel()
 		if !validPassword {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})

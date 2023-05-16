@@ -17,31 +17,6 @@ type dbStore struct {
 	collectionName string
 }
 
-// func ConnectDBStore() (database.Store, error) {
-// 	return &dbStore{}, nil
-// }
-
-// func DBConnections(connectionUri, databaseName string) (*mongo.Client, error){
-// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-// 	defer cancel()
-
-// 	opts := options.Client().ApplyURI(connectionUri)
-
-// 	client, err := mongo.Connect(ctx, opts)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	log.Println("Connected to Database")
-
-// 	return client, nil
-// }
-
-// var Client *mongo.Client = DBConnections()
-
-// func init() {
-// 	ConnectDB()
-// }
 
 var client *mongo.Client = database.DBInstance()
 
@@ -49,6 +24,10 @@ var dbName = os.Getenv("DATABASE_NAME")
 
 func UserCollection() *mongo.Collection {
 	return client.Database(dbName).Collection("user")
+}
+
+func SessionCollection() *mongo.Collection {
+	return client.Database(dbName).Collection("session")
 }
 
 func ProdCollection() *mongo.Collection {
@@ -59,19 +38,19 @@ func PurchasedCollection() *mongo.Collection {
 	return client.Database(dbName).Collection("purchasedProduct")
 }
 
-func GetUserByField(ctx context.Context, field, value string) (models.User, error) {
+func GetUserByField(ctx context.Context, field, value string) (*models.User, error) {
 	var user models.User
 	if err := UserCollection().FindOne(ctx, bson.M{field: value}).Decode(&user); err != nil {
-		return user, err
+		return nil, err
 	}
-	return user, nil
+	return &user, nil
 }
 
-func GetUserByPhone(ctx context.Context, phone string) (models.User, error) {
+func GetUserByPhone(ctx context.Context, phone string) (*models.User, error) {
 	return GetUserByField(ctx, "phone", phone)
 }
 
-func GetUserByEmail(ctx context.Context, email string) (models.User, error) {
+func GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	return GetUserByField(ctx, "email", email)
 }
 
@@ -90,7 +69,7 @@ func CreateUser(ctx context.Context, payload *models.User) (*models.User, error)
 	var user models.User
 
 	if err := UserCollection().FindOne(ctx, filters).Decode(&user); err == nil {
-		return nil, err
+		return nil, ErrDuplicate
 	}
 
 	if _, err := UserCollection().InsertOne(ctx, payload); err != nil {
