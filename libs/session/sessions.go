@@ -10,6 +10,7 @@ import (
 	"github.com/fredele20/golang-jwt-project/database/mongod"
 	"github.com/gbrlsnchs/jwt/v3"
 	"github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 var (
@@ -85,4 +86,16 @@ func CreateSession(payload Session) (string, error) {
 	fmt.Println("Token: ", s.Token)
 
 	return s.Token, nil
+}
+
+func DestroySession(token string) error {
+	// Delete session from the DB
+	var ctx context.Context
+	session := mongod.SessionCollection().FindOneAndDelete(ctx, bson.M{"token":token})
+	if session.Err() != nil {
+		logrus.WithError(session.Err()).Error("session with the token not found")
+		return session.Err()
+	}
+
+	return nil
 }

@@ -10,16 +10,8 @@ import (
 
 func main() {
 	secrets := config.GetSecrets()
-	// var dbStore database.Store
-	// var err error
 
 	address := fmt.Sprintf("127.0.0.1:%s", secrets.Port)
-
-	// if _, err = mongod.ConnectDB(secrets.DatabaseURL, secrets.DatabaseName); err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// service := controllers.NewCoreServices(dbStore)
 
 	router := gin.New()
 	router.Use(gin.Logger())

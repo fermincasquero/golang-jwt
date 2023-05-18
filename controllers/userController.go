@@ -13,7 +13,6 @@ import (
 	"github.com/fredele20/golang-jwt-project/database/mongod"
 	"github.com/fredele20/golang-jwt-project/helpers"
 	"github.com/fredele20/golang-jwt-project/models"
-	"github.com/fredele20/golang-jwt-project/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/nyaruka/phonenumbers"
@@ -139,40 +138,33 @@ func Login() gin.HandlerFunc {
 		defer cancel()
 
 		var user models.User
-		var foundUser models.User
 
 		if err := c.BindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
-		defer cancel()
+		foundUser, err := core.Login(ctx, user.Email, user.Password)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "email or password is incorrect"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		validPassword, msg := utils.VerifyPassword(user.Password, foundUser.Password)
-		defer cancel()
-		if !validPassword {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-			return
-		}
-
-		if foundUser.Email == "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
-		}
-
-		token, refreshToken, _ := helpers.GenerateAuthToken(foundUser.Email, foundUser.FirstName, foundUser.LastName, foundUser.User_type, foundUser.User_id)
-		helpers.UpdateAllToken(token, refreshToken, foundUser.User_id)
-		err = userCollection.FindOne(c, bson.M{"user_id": foundUser.User_id}).Decode(&foundUser)
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
 		c.JSON(http.StatusOK, foundUser)
+	}
+}
+
+func Logout() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		// Get the token from the request header
+		token := ctx.GetHeader("token")
+		err := core.Logout(token)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, token)
 	}
 }
 

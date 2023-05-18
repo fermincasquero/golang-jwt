@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fredele20/golang-jwt-project/database/mongod"
@@ -38,7 +39,6 @@ var (
 	ErrEmailDoesNotExist = errors.New("Email address does not exist")
 )
 
-var logger *logrus.Logger
 
 func parsePhone(phone, iso2 string) (string, error) {
 	num, err := phonenumbers.Parse(phone, iso2)
@@ -54,22 +54,21 @@ func parsePhone(phone, iso2 string) (string, error) {
 	return phonenumbers.Format(num, phonenumbers.E164), nil
 }
 
+func buildPictureURLFromName(name string) string {
+	return fmt.Sprintf("https://ui-avatars.com/api/?name=%s", strings.ReplaceAll(name, " ", "+"))
+}
+
 func CreateUser(ctx context.Context, payload models.User) (*models.User, error) {
-	// if err := payload.Validate(); err != nil {
-	// 	// logger.WithError(err).Error(ErrUserValidationFailed.Error())
-	// 	return nil, err
-	// }
-
-	fmt.Println(payload.Phone)
-	fmt.Println(payload.Iso2)
-
-	phone, err := parsePhone(payload.Phone, payload.Iso2)
-	if err != nil {
-		// logger.WithError(err).Error("failed to validate phone number or country code")
+	if err := payload.Validate(); err != nil {
+		logrus.WithError(err).Error(ErrUserValidationFailed.Error())
 		return nil, err
 	}
 
-	fmt.Println(phone)
+	phone, err := parsePhone(payload.Phone, payload.Iso2)
+	if err != nil {
+		logrus.WithError(err).Error("failed to validate phone number or country code")
+		return nil, err
+	}
 
 	
 	payload.Phone = phone
@@ -85,15 +84,7 @@ func CreateUser(ctx context.Context, payload models.User) (*models.User, error) 
 	payload.ID = primitive.NewObjectID()
 	payload.User_id = payload.ID.Hex()
 
-	token, err := session.CreateSession(session.Session{
-		AccountId: payload.User_id,
-		Role: payload.User_type,
-		Validity: 1,
-		UnitOfValidity: session.UnitOfValidityHour,
-	})
-
-	payload.Token = &token
-
+	
 	user, err := mongod.CreateUser(ctx, &payload)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -103,6 +94,56 @@ func CreateUser(ctx context.Context, payload models.User) (*models.User, error) 
 		return nil, ErrCreateUserFailed
 	}
 
+	token, err := session.CreateSession(session.Session{
+		AccountId: user.User_id,
+		Role: user.User_type,
+		Validity: 1,
+		UnitOfValidity: session.UnitOfValidityHour,
+	})
+
+	if err != nil {
+		logrus.WithError(err).Error("failed go generate authentication token")
+		return nil, err
+	}
+
+	user.Token = &token
+
 
 	return user, nil
+}
+
+func Login(ctx context.Context, email, password string) (*models.User, error) {
+	user, err := mongod.GetUserByEmail(ctx, email)
+	if err != nil {
+		logrus.WithError(err).Error("failed to get user by email")
+		return nil, ErrAuthenticationFailed
+	}
+
+	validPassword, _ := utils.VerifyPassword(user.Password, password)
+	if !validPassword {
+		logrus.WithError(err).Error("failed to log user in, incorrect password")
+		return nil, ErrAuthenticationFailed
+	}
+
+	token, err := session.CreateSession(session.Session{
+		AccountId: user.User_id,
+		Role: user.User_type,
+		Validity: 1,
+		UnitOfValidity: session.UnitOfValidityHour,
+	})
+
+	user.Token = &token
+
+	fmt.Println(user)
+
+	return user, nil
+}
+
+func Logout(token string) error {
+	err := session.DestroySession(token)
+	if err != nil {
+		logrus.WithError(err).Error("failed to destroy user logged in token")
+		return err
+	}
+	return nil
 }

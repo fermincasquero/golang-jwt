@@ -30,8 +30,8 @@ func (u User) Validate() error {
 	if err := validation.ValidateStruct(&u,
 		validation.Field(&u.FirstName, validation.Required),
 		validation.Field(&u.LastName, validation.Required),
-		validation.Field(&u.Email, validation.Required, is.Email),
-		validation.Field(&u.Phone, validation.Required, is.E164),
+		// validation.Field(&u.Email, validation.Required, is.Email),
+		// validation.Field(&u.Phone, validation.Required, is.E164),
 		validation.Field(&u.Iso2, validation.Required, is.CountryCode2),
 		validation.Field(&u.Country, validation.Required),
 	); err != nil {
