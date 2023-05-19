@@ -9,6 +9,7 @@ import (
 	"github.com/fredele20/golang-jwt-project/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type dbStore struct {
@@ -52,6 +53,33 @@ func GetUserByPhone(ctx context.Context, phone string) (*models.User, error) {
 
 func GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	return GetUserByField(ctx, "email", email)
+}
+
+func GetUserById(ctx context.Context, id string) (*models.User, error) {
+	return GetUserByField(ctx, "userId", id)
+}
+
+func UpdateUser(ctx context.Context, payload *models.User) (*models.User, error) {
+	var user models.User
+	if err := UserCollection().FindOneAndUpdate(ctx, bson.M{"userId": payload.UserId}, bson.M{
+		"$set": payload,
+	}, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&user); err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func ResetPassword(ctx context.Context, id, password string) (*models.User, error) {
+	return UpdateUser(ctx, &models.User{UserId: id, Password: password})
+}
+
+func DeleteUser(ctx context.Context, id string) error {
+	if _, err := UserCollection().DeleteOne(ctx, bson.M{"userId": id}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func CreateUser(ctx context.Context, payload *models.User) (*models.User, error) {
