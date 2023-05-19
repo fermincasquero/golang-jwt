@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/fredele20/golang-jwt-project/database/mongod"
@@ -42,6 +43,35 @@ func generateToken(id, role string) string {
 	return string(token)
 }
 
+func GetSessionByToken(token string) (*Session, error) {
+	var ctx context.Context
+	if strings.TrimSpace(token) == "" {
+		return nil, ErrTokenInvalid
+	}
+
+	// verify token
+	_, err := verifyAuthToken(token)
+	if err != nil {
+		logrus.WithError(err).Error("failed to confirm session validity")
+		return nil, err
+	}
+
+	if err := mongod.SessionCollection().FindOne(ctx, bson.M{"token": token}); err != nil {
+		logrus.WithError(err.Err()).Error("failed")
+		return nil, ErrTokenSessionNotFound
+	}
+
+	var session Session
+
+	if err = session.AssertValidity(); err != nil {
+		logrus.WithError(err).Error("failed to get assert session validity")
+		_ = DestroySession(session.Token) // Destroy it.
+		return nil, err
+	}
+
+	return &session, nil
+}
+
 func verifyAuthToken(token string) (*TokenPayload, error) {
 	secret := jwt.NewHS256([]byte(os.Getenv("JWT_SECRET")))
 	var payloadBody TokenPayload
@@ -66,14 +96,11 @@ func newSession(accountId, role string, validity time.Duration, unitOfValidity U
 }
 
 func CreateSession(payload Session) (string, error) {
-	fmt.Println("Function called")
 	var ctx context.Context
 
 	if !payload.UnitOfValidity.IsValid() {
 		return "", ErrInvalidUnitOfValidity
 	}
-
-	// input := make(map[string][]byte)
 
 	s := newSession(payload.AccountId, payload.Role, payload.Validity, payload.UnitOfValidity)
 	_, err := mongod.SessionCollection().InsertOne(ctx, s)
@@ -82,8 +109,6 @@ func CreateSession(payload Session) (string, error) {
 		fmt.Println("Error: ", err)
 		return "", err
 	}
-
-	fmt.Println("Token: ", s.Token)
 
 	return s.Token, nil
 }

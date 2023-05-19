@@ -30,7 +30,7 @@ var (
 	ErrUserNotFoundById              = errors.New("user not found by id")
 	ErrUserNotFoundByEmail           = errors.New("user not found by email")
 	ErrUserNotFoundByPhone           = errors.New("user not found by phone")
-	ErrFailedtoGetUserByEmail        = errors.New("Sorry, incorrect email. Please try again.")
+	ErrFailedToGetUserByEmail        = errors.New("Sorry, incorrect email. Please try again.")
 	ErrFailedToResetPassword         = errors.New("Failed to rest password")
 	ErrFailedToResetPasswordBadToken = errors.New("Sorry, your reset token has expired. Please try requesting for password reset again.")
 	ErrPasswordIsSame                = errors.New("You cannot use this password, please login")
@@ -75,28 +75,30 @@ func CreateUser(ctx context.Context, payload models.User) (*models.User, error) 
 	password := utils.HashPassword(payload.Password)
 	payload.Password = password
 	
-	if payload.User_type == "" {
-		payload.User_type = "USER"
+	if payload.UserType == "" {
+		payload.UserType = "USER"
 	}
 	
-	payload.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-	payload.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+	payload.CreatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+	payload.UpdatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 	payload.ID = primitive.NewObjectID()
-	payload.User_id = payload.ID.Hex()
+	payload.UserId = payload.ID.Hex()
 
 	
 	user, err := mongod.CreateUser(ctx, &payload)
 	if err != nil {
 		fmt.Println(err.Error())
 		if err == mongod.ErrDuplicate {
+			logrus.WithError(err).Error("create user failed, duplicate record attempted")
 			return nil, ErrCreateUserDuplicate
 		}
+		logrus.WithError(err).Error(err.Error())
 		return nil, ErrCreateUserFailed
 	}
 
 	token, err := session.CreateSession(session.Session{
-		AccountId: user.User_id,
-		Role: user.User_type,
+		AccountId: user.UserId,
+		Role: user.UserType,
 		Validity: 1,
 		UnitOfValidity: session.UnitOfValidityHour,
 	})
@@ -126,8 +128,8 @@ func Login(ctx context.Context, email, password string) (*models.User, error) {
 	}
 
 	token, err := session.CreateSession(session.Session{
-		AccountId: user.User_id,
-		Role: user.User_type,
+		AccountId: user.UserId,
+		Role: user.UserType,
 		Validity: 1,
 		UnitOfValidity: session.UnitOfValidityHour,
 	})
@@ -146,4 +148,27 @@ func Logout(token string) error {
 		return err
 	}
 	return nil
+}
+
+func ForgotPassword(ctx context.Context, email string) (*models.User, error) {
+	user, err := mongod.GetUserByEmail(ctx, email)
+	if err != nil {
+		logrus.WithError(err).Error("failed to get user by email for password reset request")
+		return nil, ErrFailedToGetUserByEmail
+	}
+
+	token, err := session.CreateSession(session.Session{
+		AccountId: user.UserId,
+		Validity: 15,
+		UnitOfValidity: session.UnitOfValidityMinute,
+	})
+
+	if err != nil {
+		logrus.WithError(err).Error("failed to create session for forgot password request")
+		return nil, err
+	}
+
+	user.ResetPasswordToken = &token
+
+	return user, nil
 }

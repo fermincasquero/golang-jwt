@@ -10,20 +10,21 @@ import (
 )
 
 type User struct {
-	ID            primitive.ObjectID `bson:"id"`
-	FirstName     string             `json:"firstName" validate:"required,min=2,max=100"`
-	LastName      string             `json:"lastName" validate:"required,min=2,max=100"`
-	Password      string             `json:"password" validate:"required,min=6"`
-	Email         string             `json:"email"`
-	Phone         string             `json:"phone"`
-	Token         *string            `json:"token"`
-	Iso2          string             `json:"iso2" validate:"required"`
-	Country       string             `json:"country"`
-	User_type     string             `json:"user_type" validate:"required,eq=ADMIN|eq=USER"`
-	Refresh_token *string            `json:"refresh_token"`
-	Created_at    time.Time          `json:"created_at"`
-	Updated_at    time.Time          `json:"updated_at"`
-	User_id       string             `json:"user_id"`
+	ID                 primitive.ObjectID `bson:"id"`
+	FirstName          string             `json:"firstName" validate:"required,min=2,max=100"`
+	LastName           string             `json:"lastName" validate:"required,min=2,max=100"`
+	Password           string             `json:"password" validate:"required,min=6"`
+	Email              string             `json:"email"`
+	Phone              string             `json:"phone"`
+	Token              *string            `json:"token"`
+	Iso2               string             `json:"iso2" validate:"required"`
+	Country            string             `json:"country"`
+	UserType           string             `json:"user_type" validate:"required,eq=ADMIN|eq=USER"`
+	RefreshToken       *string            `json:"refreshToken"`
+	ResetPasswordToken *string            `json:"resetPasswordToken"`
+	CreatedAt          time.Time          `json:"createdAt"`
+	UpdatedAt          time.Time          `json:"updatedAt"`
+	UserId             string             `json:"userId"`
 }
 
 func (u User) Validate() error {

@@ -168,6 +168,26 @@ func Logout() gin.HandlerFunc {
 	}
 }
 
+func ForgotPassword() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx context.Context
+		var user models.User
+
+		if err := c.BindJSON(&user); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error":err.Error()})
+			return
+		}
+
+		foundUser, err := core.ForgotPassword(ctx, user.Email)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, foundUser)
+	}
+}
+
 func GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if err := helpers.CheckUserType(c, "ADMIN"); err != nil {

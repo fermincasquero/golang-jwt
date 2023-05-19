@@ -38,6 +38,24 @@ func (u UnitOfValidity) IsValid() bool {
 	return false
 }
 
+func (sm *Session) AssertValidity() error {
+	now := time.Now().Unix()
+	lastUsage := sm.LastUsage
+	uV := sm.UnitOfValidity
+	var validity int64 = 0
+	switch uV {
+	case UnitOfValidityHour:
+		validity = lastUsage.Add(time.Hour * sm.Validity).Unix()
+	case UnitOfValidityMinute:
+		validity = lastUsage.Add(time.Minute * sm.Validity).Unix()
+	}
+
+	if now > validity {
+		return ErrTokenExpired
+	}
+	return nil
+}
+
 func (u UnitOfValidity) String() string {
 	return string(u)
 }
