@@ -188,6 +188,30 @@ func ForgotPassword() gin.HandlerFunc {
 	}
 }
 
+func ResetPassword() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		var ctx context.Context
+		var user models.ConfirmPasswordRequest
+
+		if err := c.BindJSON(&user); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		token := c.GetHeader("token")
+
+		reset, err := core.ResetPassword(ctx, token, user.Password, user.ConfirmPassword)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, reset)
+
+	}
+}
+
 func ListUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx context.Context

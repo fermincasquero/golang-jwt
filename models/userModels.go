@@ -84,3 +84,8 @@ type ListUserFilter struct {
 	// Limit the number of records to be returned at once
 	Limit int64 `json:"limit"`
 }
+
+type ConfirmPasswordRequest struct {
+	Password string `json:"password"`
+	ConfirmPassword string `json:"confirmPassword"`
+}

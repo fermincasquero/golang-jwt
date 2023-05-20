@@ -185,6 +185,7 @@ func ListUsers(ctx context.Context, filters models.ListUserFilter) (*models.User
 
 func ResetPassword(ctx context.Context, token, password, confirmPassword string) (*models.User, error) {
 	if password != confirmPassword {
+		logrus.WithError(ErrPasswordDoesNotMatch).Error(ErrPasswordDoesNotMatch)
 		return nil, ErrPasswordDoesNotMatch
 	}
 
