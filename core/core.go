@@ -172,3 +172,49 @@ func ForgotPassword(ctx context.Context, email string) (*models.User, error) {
 
 	return user, nil
 }
+
+func ListUsers(ctx context.Context, filters models.ListUserFilter) (*models.UserList, error) {
+	users, err := mongod.ListUsers(ctx, filters)
+	if err != nil {
+		logrus.WithError(err).Error(ErrListUsersFailed.Error())
+		return nil, err
+	}
+
+	return users, nil
+}
+
+func ResetPassword(ctx context.Context, token, password, confirmPassword string) (*models.User, error) {
+	if password != confirmPassword {
+		return nil, ErrPasswordDoesNotMatch
+	}
+
+	userSession, err := session.GetSessionByToken(token)
+	if err != nil {
+		logrus.WithError(err).Error("failed to valid session")
+		return nil, ErrFailedToResetPasswordBadToken
+	}
+
+	user, err := mongod.GetUserById(ctx, userSession.AccountId)
+	if err != nil {
+		logrus.WithError(err).Error("failed to get user from database after validating user session")
+		return nil, ErrFailedToResetPasswordBadToken
+	}
+
+	samePassword, _ := utils.VerifyPassword(user.Password, password)
+	if samePassword {
+		return nil, ErrPasswordIsSame
+	}
+
+	updatedUser, err := mongod.UpdateUser(ctx, &models.User{
+		UserId: user.UserId,
+		Password: utils.HashPassword(password),
+	})
+	if err != nil {
+		logrus.WithError(err).Error("failed to update user password in database")
+		return nil, ErrFailedToResetPassword
+	}
+
+	_ = session.DestroySession(token) // Destroy token once the password is reset
+
+	return updatedUser, nil
+}

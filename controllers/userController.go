@@ -188,6 +188,21 @@ func ForgotPassword() gin.HandlerFunc {
 	}
 }
 
+func ListUsers() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx context.Context
+		var filter models.ListUserFilter
+
+		users, err := core.ListUsers(ctx, filter)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, users)
+	}
+}
+
 func GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if err := helpers.CheckUserType(c, "ADMIN"); err != nil {

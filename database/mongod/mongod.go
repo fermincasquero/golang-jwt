@@ -59,6 +59,49 @@ func GetUserById(ctx context.Context, id string) (*models.User, error) {
 	return GetUserByField(ctx, "userId", id)
 }
 
+func ListUsers(ctx context.Context, filters models.ListUserFilter) (*models.UserList, error) {
+	opts := options.Find()
+	opts.SetProjection(bson.M{
+		"password": false,
+		"token": false,
+	})
+	
+	if filters.Limit != 0 {
+		opts.SetLimit(filters.Limit)
+	}
+
+	filter := bson.M{}
+
+	if filters.Status != nil && filters.Status.IsValid() {
+		filter["status"] = filters.Status.String()
+	}
+
+	var users []*models.User
+
+	cursor, err := UserCollection().Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cursor.All(ctx, &users); err != nil {
+		print(err)
+		return nil, err
+	}
+
+	delete(filter, "id")
+
+	count, err := UserCollection().CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.UserList{
+		Count: count,
+		Data: users,
+	}, nil
+
+}
+
 func UpdateUser(ctx context.Context, payload *models.User) (*models.User, error) {
 	var user models.User
 	if err := UserCollection().FindOneAndUpdate(ctx, bson.M{"userId": payload.UserId}, bson.M{
@@ -68,6 +111,14 @@ func UpdateUser(ctx context.Context, payload *models.User) (*models.User, error)
 	}
 
 	return &user, nil
+}
+
+func DeactivateUser(ctx context.Context, id string) (*models.User, error) {
+	return UpdateUser(ctx, &models.User{UserId: id, Status: models.StatusDeactivated})
+}
+
+func ActivateUser(ctx context.Context, id string) (*models.User, error) {
+	return UpdateUser(ctx, &models.User{UserId: id, Status: models.StatusActivated})
 }
 
 func ResetPassword(ctx context.Context, id, password string) (*models.User, error) {
@@ -108,7 +159,3 @@ func CreateUser(ctx context.Context, payload *models.User) (*models.User, error)
 }
 
 var ErrDuplicate = errors.New("duplicate record")
-
-// func (d dbStore) UpdateOne(ctx context.Context, filtre, object, opts interface{}) (*models.User, error) {
-
-// }

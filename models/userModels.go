@@ -25,6 +25,27 @@ type User struct {
 	CreatedAt          time.Time          `json:"createdAt"`
 	UpdatedAt          time.Time          `json:"updatedAt"`
 	UserId             string             `json:"userId"`
+	Status             Status             `json:"status"`
+}
+
+type Status string
+
+const (
+	StatusActivated   Status = "activated"
+	StatusDeactivated Status = "deactivated"
+)
+
+func (s Status) IsValid() bool {
+	switch s {
+	case StatusActivated, StatusDeactivated:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s Status) String() string {
+	return string(s)
 }
 
 func (u User) Validate() error {
@@ -44,4 +65,22 @@ func (u User) Validate() error {
 
 func (u User) ValidatePhone() error {
 	return validation.Validate(u.Phone, is.E164)
+}
+
+type UserList struct {
+	Data  []*User `json:"data"`
+	Count int64   `json:"count"`
+}
+
+type ListUserFilter struct {
+	// NextCursorId is used to paginate forward
+	NextCursorId *string `json:"nextCursorId"`
+	// PreviousCursorId is used to paginate backward
+	PreviousCursorId *string `json:"previousCursorId"`
+	// Filters by status
+	Status *Status `json:""`
+	// Filter by country
+	Iso2 *string `json:"iso2"`
+	// Limit the number of records to be returned at once
+	Limit int64 `json:"limit"`
 }
