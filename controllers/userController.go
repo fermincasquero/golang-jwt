@@ -217,6 +217,11 @@ func ListUsers() gin.HandlerFunc {
 		var ctx context.Context
 		var filter models.ListUserFilter
 
+		// if err := c.BindJSON(&filter); err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		// 	return
+		// }
+
 		users, err := core.ListUsers(ctx, filter)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

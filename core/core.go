@@ -79,6 +79,7 @@ func CreateUser(ctx context.Context, payload models.User) (*models.User, error) 
 		payload.UserType = "USER"
 	}
 	
+	payload.Status = models.StatusActivated
 	payload.CreatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 	payload.UpdatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 	payload.ID = primitive.NewObjectID()
@@ -96,19 +97,19 @@ func CreateUser(ctx context.Context, payload models.User) (*models.User, error) 
 		return nil, ErrCreateUserFailed
 	}
 
-	token, err := session.CreateSession(session.Session{
-		AccountId: user.UserId,
-		Role: user.UserType,
-		Validity: 1,
-		UnitOfValidity: session.UnitOfValidityHour,
-	})
+	// token, err := session.CreateSession(session.Session{
+	// 	AccountId: user.UserId,
+	// 	Role: user.UserType,
+	// 	Validity: 1,
+	// 	UnitOfValidity: session.UnitOfValidityHour,
+	// })
 
 	if err != nil {
 		logrus.WithError(err).Error("failed go generate authentication token")
 		return nil, err
 	}
 
-	user.Token = &token
+	// user.Token = &token
 
 
 	return user, nil
